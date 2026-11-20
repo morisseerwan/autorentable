@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AutoRentable">
+<title>AutoRentable — Gestion automobile</title>
+<style>
+:root{--navy:#1f2937;--blue:#60708f;--light:#eef2f7;--line:#d7dce5;--green:#197a4b;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#f5f6f8;color:#18202b}
+header{background:var(--navy);color:white;padding:18px 16px 14px;position:sticky;top:0;z-index:10}
+h1{font-size:20px;margin:0 0 4px}header p{margin:0;font-size:12px;opacity:.8}
+nav{display:flex;gap:6px;overflow:auto;background:#fff;border-bottom:1px solid var(--line);padding:8px}
+nav button{white-space:nowrap;border:0;background:#73819d;color:white;padding:10px 13px;border-radius:7px;font-weight:700;font-size:13px}
+nav button.active{background:#334155}
+main{padding:14px;max-width:1000px;margin:auto}.tab{display:none}.tab.active{display:block}
+.card{background:white;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0000000b}
+h2{font-size:18px;margin:0 0 12px}h3{font-size:15px;margin:18px 0 9px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}
+label{display:block;font-size:12px;font-weight:700;color:#4b5563;margin-bottom:5px}
+input,select,textarea{width:100%;border:1px solid #cbd2dc;border-radius:8px;padding:11px;background:#fff;font-size:15px;color:#111827}
+textarea{min-height:90px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid #b7c6df;border-color:#73819d}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.kpi{background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:12px}.kpi small{display:block;color:#64748b}.kpi strong{display:block;font-size:20px;margin-top:4px}
+button.primary{border:0;background:#1f2937;color:#fff;border-radius:9px;padding:12px 15px;font-weight:800;font-size:14px}
+button.secondary{border:1px solid #cbd2dc;background:white;border-radius:9px;padding:10px 13px;font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{background:#f1f4f8}
+.table-wrap{overflow:auto}.profit{font-weight:800}.positive{color:var(--green)}.negative{color:var(--red)}
+.notice{background:#eef5ff;border-left:4px solid #60708f;padding:10px;font-size:13px;border-radius:5px}
+.empty{color:#64748b;text-align:center;padding:22px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr)}.kpis{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<header><h1>AUTORENTABLE</h1><p>Gestion des véhicules • marges • suivi des achats et ventes</p></header>
+<nav id="nav">
+<button class="active" data-tab="dashboard">Tableau de bord</button>
+<button data-tab="fiche">Fiche véhicule</button>
+<button data-tab="suivi">Suivi véhicules</button>
+<button data-tab="check">Check-list achat</button>
+<button data-tab="bilan">Bilan mensuel</button>
+</nav>
+<main>
+
+<section class="card" id="authCard">
+  <h2>Compte AutoRentable</h2>
+  <p id="authStatus" class="notice">Connecte-toi ou crée un compte pour enregistrer tes véhicules en ligne.</p>
+  <div class="grid" id="authForm">
+    <div><label for="authEmail">Adresse e-mail</label><input id="authEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr"></div>
+    <div><label for="authPassword">Mot de passe</label><input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="8 caractères minimum"></div>
+  </div>
+  <div class="actions" id="authActions">
+    <button class="primary" id="loginBtn">Se connecter</button>
+    <button class="secondary" id="signupBtn">Créer un compte</button>
+  </div>
+  <div class="actions" id="signedInActions" hidden>
+    <button class="secondary" id="logoutBtn">Se déconnecter</button>
+  </div>
+  <p class="notice">Les véhicules sont privés et associés au compte connecté. Ne communique jamais ta clé secrète Supabase.</p>
+</section>
+<section id="dashboard" class="tab active">
+<div class="card"><h2>Tableau de bord</h2><div class="kpis">
+<div class="kpi"><small>Véhicules</small><strong id="kpiVehicles">0</strong></div>
+<div class="kpi"><small>En stock</small><strong id="kpiStock">0</strong></div>
+<div class="kpi"><small>CA ventes</small><strong id="kpiSales">0 €</strong></div>
+<div class="kpi"><small>Marge totale</small><strong id="kpiMargin">0 €</strong></div>
+</div></div>
+<div class="card"><h2>Résultats récents</h2><div id="recent"></div></div>
+</section>
+
+<section id="fiche" class="tab">
+<div class="card"><h2>Fiche véhicule</h2><div class="notice">Remplis les champs. Les coûts, la marge et le ROI se calculent automatiquement.</div>
+<h3>Identification</h3><div class="grid">
+<div><label>Marque</label><input id="brand"></div><div><label>Modèle</label><input id="model"></div>
+<div><label>Version / finition</label><input id="trim"></div><div><label>Année</label><input id="year" type="number"></div>
+<div><label>Immatriculation</label><input id="plate"></div><div><label>VIN</label><input id="vin"></div>
+<div><label>Couleur</label><input id="color"></div><div><label>Kilométrage</label><input id="km" type="number"></div>
+<div><label>Carburant</label><select id="fuel"><option></option><option>Diesel</option><option>Essence</option><option>Hybride</option><option>Électrique</option><option>GPL</option></select></div>
+<div><label>Puissance (ch)</label><input id="power" type="number"></div>
+<div><label>Boîte</label><select id="gear"><option></option><option>Manuelle</option><option>Automatique</option></select></div>
+<div><label>Date 1ère mise en circulation</label><input id="firstDate" type="date"></div>
+</div>
+
+<h3>Calcul de rentabilité</h3><div class="grid">
+<div><label>Prix d'achat (€)</label><input id="buy" type="number" step="0.01"></div>
+<div><label>Réparations (€)</label><input id="repairs" type="number" step="0.01"></div>
+<div><label>Pièces (€)</label><input id="parts" type="number" step="0.01"></div>
+<div><label>Carte grise / administratif (€)</label><input id="admin" type="number" step="0.01"></div>
+<div><label>Contrôle technique (€)</label><input id="ct" type="number" step="0.01"></div>
+<div><label>Transport / carburant (€)</label><input id="transport" type="number" step="0.01"></div>
+<div><label>Autres frais (€)</label><input id="other" type="number" step="0.01"></div>
+<div><label>Prix de vente prévu (€)</label><input id="plannedSale" type="number" step="0.01"></div>
+</div>
+<div class="kpis" style="margin-top:12px">
+<div class="kpi"><small>Coût total</small><strong id="totalCost">0 €</strong></div>
+<div class="kpi"><small>Marge prévue</small><strong id="plannedMargin">0 €</strong></div>
+<div class="kpi"><small>Marge %</small><strong id="plannedPct">0 %</strong></div>
+<div class="kpi"><small>ROI</small><strong id="roi">0 %</strong></div>
+</div>
+
+<h3>État du véhicule</h3><div class="grid" id="conditionGrid"></div>
+<h3>Vente</h3><div class="grid">
+<div><label>Prix de vente réel (€)</label><input id="realSale" type="number" step="0.01"></div>
+<div><label>Date de vente</label><input id="saleDate" type="date"></div>
+<div><label>Plateforme / acheteur</label><input id="platform"></div>
+<div class="full"><label>Notes / historique</label><textarea id="notes"></textarea></div>
+</div>
+<div class="actions"><button class="primary" id="saveBtn">Enregistrer le véhicule</button><button class="secondary" id="resetBtn">Nouvelle fiche</button></div>
+</div>
+</section>
+
+<section id="suivi" class="tab">
+<div class="card"><h2>Suivi de tous les véhicules</h2><div class="table-wrap"><table><thead><tr><th>Véhicule</th><th>Achat</th><th>Coût total</th><th>Vente</th><th>Marge</th><th>Statut</th><th></th></tr></thead><tbody id="vehicleRows"></tbody></table></div></div>
+</section>
+
+<section id="check" class="tab">
+<div class="card"><h2>Check-list achat</h2><p>À utiliser avant de valider un achat.</p><div id="checks"></div></div>
+</section>
+
+<section id="bilan" class="tab">
+<div class="card"><h2>Bilan mensuel</h2><div class="kpis"><div class="kpi"><small>Ventes</small><strong id="monthCount">0</strong></div><div class="kpi"><small>CA</small><strong id="monthCA">0 €</strong></div><div class="kpi"><small>Marge</small><strong id="monthMargin">0 €</strong></div><div class="kpi"><small>Marge moyenne</small><strong id="monthAvg">0 €</strong></div></div></div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Configuration publique du projet Supabase.
+// La clé "publishable" est conçue pour être utilisée dans le navigateur.
+// Ne jamais mettre ici une clé secrète / service_role.
+const SUPABASE_URL = "https://qlpidzdghfprrdmgkuvn.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JpYur1CchEbgi3xIz9oIyg_IhvBopTo";
+
+const supabaseReady = () =>
+  window.supabase &&
+  SUPABASE_URL.startsWith("https://") &&
+  SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_") &&
+  !SUPABASE_PUBLISHABLE_KEY.includes("REMPLACER");
+
+const KEY = "pack_marchand_auto_v1"; // ancienne sauvegarde locale, conservée pour migration
+let db = null;
+let currentUser = null;
+let vehicles = [];
+let editingId = null;
+const fields = ["brand","model","trim","year","plate","vin","color","km","fuel","power","gear","firstDate","buy","repairs","parts","admin","ct","transport","other","plannedSale","realSale","saleDate","platform","notes"];
+const conditions = ["Moteur","Boîte","Embrayage","Freins","Pneus","Carrosserie","Intérieur","Électricité","Climatisation","Distribution","Batterie","Voyants"];
+const condIds = {};
+conditions.forEach((x,i) => condIds[x] = "c" + i);
+
+document.getElementById("conditionGrid").innerHTML = conditions.map((x,i) =>
+  `<div><label>${x}</label><select id="c${i}"><option>À contrôler</option><option>OK</option><option>À prévoir</option><option>À remplacer</option></select></div>`
+).join("");
+
+const checkItems = ["Carte grise / identité du vendeur","VIN et documents vérifiés","Historique d'entretien","Démarrage à froid","Essai routier","Embrayage / boîte","Freinage","Pneus","Fuites moteur","Voyants tableau de bord","Distribution","CT / contre-visite","Prix d'achat négocié","Coût des réparations estimé","Prix de revente estimé"];
+document.getElementById("checks").innerHTML = checkItems.map((x,i) =>
+  `<label style="display:flex;gap:9px;align-items:center;margin:10px 0;font-size:14px"><input type="checkbox" style="width:auto" id="chk${i}">${x}</label>`
+).join("");
+
+function val(id){ return document.getElementById(id).value; }
+function num(id){ return parseFloat(val(id)) || 0; }
+function money(n){ return new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n || 0); }
+function setStatus(message, isError=false) {
+  const el = document.getElementById("authStatus");
+  el.textContent = message;
+  el.style.background = isError ? "#fff1f0" : "#eef5ff";
+  el.style.borderLeftColor = isError ? "#b42318" : "#60708f";
+}
+function updateAuthUI() {
+  const signedIn = !!currentUser;
+  document.getElementById("authForm").hidden = signedIn;
+  document.getElementById("authActions").hidden = signedIn;
+  document.getElementById("signedInActions").hidden = !signedIn;
+  if (signedIn) setStatus("Connecté : " + currentUser.email + ". Tes véhicules sont chargés depuis Supabase.");
+}
+function calc(){
+  const cost = num("buy")+num("repairs")+num("parts")+num("admin")+num("ct")+num("transport")+num("other");
+  const pm = num("plannedSale")-cost, pct = num("plannedSale") ? pm/num("plannedSale")*100 : 0, roi = cost ? pm/cost*100 : 0;
+  document.getElementById("totalCost").textContent = money(cost);
+  document.getElementById("plannedMargin").textContent = money(pm);
+  document.getElementById("plannedPct").textContent = pct.toFixed(1)+" %";
+  document.getElementById("roi").textContent = roi.toFixed(1)+" %";
+  return {cost,pm,pct,roi};
+}
+document.querySelectorAll("#fiche input, #fiche select, #fiche textarea").forEach(e => e.addEventListener("input", calc));
+
+function collectVehicle() {
+  const c = calc();
+  const real = num("realSale");
+  return {
+    ...(editingId ? {id: editingId} : {}),
+    ...Object.fromEntries(fields.map(f => [f, val(f)])),
+    ...Object.fromEntries(conditions.map(x => [x, val(condIds[x])])),
+    totalCost: c.cost,
+    margin: real - c.cost,
+    status: real ? "Vendu" : "En stock"
+  };
+}
+function reset(){
+  editingId = null;
+  fields.forEach(f => document.getElementById(f).value = "");
+  conditions.forEach(x => document.getElementById(condIds[x]).value = "À contrôler");
+  calc();
+}
+async function loadVehicles(){
+  if (!currentUser) { vehicles = []; render(); return; }
+  const {data, error} = await db.from("vehicles").select("id,data,created_at,updated_at").order("created_at",{ascending:false});
+  if (error) throw error;
+  vehicles = (data || []).map(row => ({...row.data, id: row.id}));
+  render();
+}
+async function save(){
+  if (!currentUser) { alert("Connecte-toi d'abord pour enregistrer un véhicule."); return; }
+  const v = collectVehicle();
+  const id = editingId || crypto.randomUUID();
+  const payload = {...v};
+  delete payload.id;
+  const {error} = await db.from("vehicles").upsert({
+    id, user_id: currentUser.id, data: payload, updated_at: new Date().toISOString()
+  }, {onConflict:"id"});
+  if (error) { alert("Enregistrement impossible : " + error.message); return; }
+  editingId = id;
+  await loadVehicles();
+  alert("Véhicule enregistré dans Supabase.");
+}
+function edit(id){
+  const v = vehicles.find(x => x.id === id);
+  if (!v) return;
+  editingId = id;
+  fields.forEach(f => document.getElementById(f).value = v[f] ?? "");
+  conditions.forEach(x => document.getElementById(condIds[x]).value = v[x] ?? "À contrôler");
+  document.querySelector('[data-tab="fiche"]').click();
+  calc();
+}
+async function del(id){
+  if (!currentUser) return;
+  if (!confirm("Supprimer ce véhicule ?")) return;
+  const {error} = await db.from("vehicles").delete().eq("id",id);
+  if (error) { alert("Suppression impossible : " + error.message); return; }
+  await loadVehicles();
+}
+function render(){
+  const rows = document.getElementById("vehicleRows");
+  if (!vehicles.length) rows.innerHTML = `<tr><td colspan="7" class="empty">Aucun véhicule enregistré.</td></tr>`;
+  else rows.innerHTML = vehicles.map(v => `<tr>
+    <td><b>${escapeHtml(v.brand||"")} ${escapeHtml(v.model||"")}</b><br>${escapeHtml(v.plate||"")}</td>
+    <td>${money(+v.buy)}</td><td>${money(+v.totalCost)}</td><td>${money(+v.realSale)}</td>
+    <td class="${+v.margin>=0?'positive':'negative'}">${money(+v.margin)}</td>
+    <td>${escapeHtml(v.status||"En stock")}</td>
+    <td><button class="secondary" data-edit="${v.id}">Modifier</button> <button class="secondary" data-delete="${v.id}">×</button></td>
+  </tr>`).join("");
+  rows.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click",()=>edit(b.dataset.edit)));
+  rows.querySelectorAll("[data-delete]").forEach(b => b.addEventListener("click",()=>del(b.dataset.delete)));
+  const sold = vehicles.filter(v => +v.realSale > 0);
+  const ca = sold.reduce((s,v)=>s+(+v.realSale||0),0);
+  const mar = sold.reduce((s,v)=>s+(+v.margin||0),0);
+  document.getElementById("kpiVehicles").textContent = vehicles.length;
+  document.getElementById("kpiStock").textContent = vehicles.filter(v=>!+v.realSale).length;
+  document.getElementById("kpiSales").textContent = money(ca);
+  document.getElementById("kpiMargin").textContent = money(mar);
+  document.getElementById("monthCount").textContent = sold.length;
+  document.getElementById("monthCA").textContent = money(ca);
+  document.getElementById("monthMargin").textContent = money(mar);
+  document.getElementById("monthAvg").textContent = money(sold.length ? mar/sold.length : 0);
+  document.getElementById("recent").innerHTML = sold.length
+    ? `<div class="table-wrap"><table><tr><th>Véhicule</th><th>Vente</th><th>Marge</th></tr>${sold.slice(-5).reverse().map(v=>`<tr><td>${escapeHtml(v.brand||"")} ${escapeHtml(v.model||"")}</td><td>${money(+v.realSale)}</td><td class="${+v.margin>=0?'positive':'negative'}">${money(+v.margin)}</td></tr>`).join("")}</table></div>`
+    : `<div class="empty">Aucune vente enregistrée.</div>`;
+}
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+async function migrateLocalVehiclesOnce(){
+  if (!currentUser) return;
+  const migrationKey = "pack_marchand_migrated_" + currentUser.id;
+  if (localStorage.getItem(migrationKey)) return;
+  let old = [];
+  try { old = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch {}
+  if (!Array.isArray(old) || !old.length) { localStorage.setItem(migrationKey,"1"); return; }
+  const ok = confirm("Des véhicules sont encore enregistrés sur cet appareil. Veux-tu les copier dans ton compte Supabase ? Les données locales seront conservées.");
+  if (!ok) return;
+  const rows = old.map(v => {
+    const data = {...v}; delete data.id;
+    return {user_id:currentUser.id, data, updated_at:new Date().toISOString()};
+  });
+  const {error} = await db.from("vehicles").insert(rows);
+  if (error) { alert("Migration non effectuée : " + error.message + ". Les données locales sont conservées."); return; }
+  localStorage.setItem(migrationKey,"1");
+  alert("Anciennes fiches copiées dans Supabase. La copie locale est conservée en sécurité.");
+}
+async function signIn(){
+  const email = val("authEmail").trim(), password = val("authPassword");
+  const {error} = await db.auth.signInWithPassword({email,password});
+  if (error) setStatus(error.message,true);
+}
+async function signUp(){
+  const email = val("authEmail").trim(), password = val("authPassword");
+  if (password.length < 8) { setStatus("Choisis un mot de passe d'au moins 8 caractères.",true); return; }
+  const {data,error} = await db.auth.signUp({email,password});
+  if (error) setStatus(error.message,true);
+  else if (!data.session) setStatus("Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.");
+}
+async function signOut(){
+  const {error} = await db.auth.signOut();
+  if (error) setStatus(error.message,true);
+}
+document.getElementById("loginBtn").onclick = signIn;
+document.getElementById("signupBtn").onclick = signUp;
+document.getElementById("logoutBtn").onclick = signOut;
+document.getElementById("saveBtn").onclick = save;
+document.getElementById("resetBtn").onclick = reset;
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#nav button").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.getElementById(b.dataset.tab).classList.add("active");
+  render();
+});
+
+async function init(){
+  calc(); render();
+  if (!supabaseReady()) {
+    setStatus("Configuration incomplète : remplace la valeur de SUPABASE_PUBLISHABLE_KEY dans le fichier par la clé publiable de ton projet Supabase.",true);
+    return;
+  }
+  db = window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+  const {data:{session},error} = await db.auth.getSession();
+  if (error) setStatus(error.message,true);
+  currentUser = session?.user || null;
+  updateAuthUI();
+  if (currentUser) {
+    try { await migrateLocalVehiclesOnce(); await loadVehicles(); }
+    catch(e) { setStatus("Erreur de chargement : " + e.message,true); }
+  }
+  db.auth.onAuthStateChange(async (_event,session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+    try {
+      if (currentUser) { await migrateLocalVehiclesOnce(); await loadVehicles(); }
+      else { vehicles=[]; render(); setStatus("Déconnecté. Connecte-toi pour retrouver tes véhicules."); }
+    } catch(e) { setStatus("Erreur : " + e.message,true); }
+  });
+}
+init();
+</script>
+
+</body></html>
