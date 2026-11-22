@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1f2937">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="AutoRentable">
 <title>AutoRentable — Gestion automobile</title>
@@ -60,17 +61,27 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <section class="card" id="authCard">
 <h2>Compte AutoRentable</h2>
 <p id="authStatus" class="notice">Connecte-toi ou crée un compte pour enregistrer tes véhicules en ligne.</p>
+
 <div class="grid" id="authForm">
-<div><label for="authEmail">Adresse e-mail</label><input id="authEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr"></div>
-<div><label for="authPassword">Mot de passe</label><input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="8 caractères minimum"></div>
+<div>
+<label for="authEmail">Adresse e-mail</label>
+<input id="authEmail" type="email" autocomplete="email" placeholder="nom@exemple.fr">
 </div>
+<div>
+<label for="authPassword">Mot de passe</label>
+<input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="8 caractères minimum">
+</div>
+</div>
+
 <div class="actions" id="authActions">
 <button class="primary" id="loginBtn">Se connecter</button>
 <button class="secondary" id="signupBtn">Créer un compte</button>
 </div>
+
 <div class="actions" id="signedInActions" hidden>
 <button class="secondary" id="logoutBtn">Se déconnecter</button>
 </div>
+
 <p class="notice">Les véhicules sont privés et associés au compte connecté. Ne communique jamais ta clé secrète Supabase.</p>
 </section>
 
@@ -91,7 +102,10 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <div class="kpi"><small>Marge totale</small><strong id="kpiMargin">0 €</strong></div>
 </div>
 </div>
-<div class="card"><h2>Résultats récents</h2><div id="recent"></div></div>
+<div class="card">
+<h2>Résultats récents</h2>
+<div id="recent"></div>
+</div>
 </section>
 
 <section id="fiche" class="tab">
@@ -109,9 +123,17 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <div><label>VIN</label><input id="vin"></div>
 <div><label>Couleur</label><input id="color"></div>
 <div><label>Kilométrage</label><input id="km" type="number"></div>
-<div><label>Carburant</label><select id="fuel"><option></option><option>Diesel</option><option>Essence</option><option>Hybride</option><option>Électrique</option><option>GPL</option></select></div>
+<div>
+<label>Carburant</label>
+<select id="fuel">
+<option></option><option>Diesel</option><option>Essence</option><option>Hybride</option><option>Électrique</option><option>GPL</option>
+</select>
+</div>
 <div><label>Puissance (ch)</label><input id="power" type="number"></div>
-<div><label>Boîte</label><select id="gear"><option></option><option>Manuelle</option><option>Automatique</option></select></div>
+<div>
+<label>Boîte</label>
+<select id="gear"><option></option><option>Manuelle</option><option>Automatique</option></select>
+</div>
 <div><label>Date 1ère mise en circulation</label><input id="firstDate" type="date"></div>
 </div>
 
@@ -157,7 +179,9 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <h2>Suivi de tous les véhicules</h2>
 <div class="table-wrap">
 <table>
-<thead><tr><th>Véhicule</th><th>Achat</th><th>Coût total</th><th>Vente</th><th>Marge</th><th>Statut</th><th></th></tr></thead>
+<thead>
+<tr><th>Véhicule</th><th>Achat</th><th>Coût total</th><th>Vente</th><th>Marge</th><th>Statut</th><th></th></tr>
+</thead>
 <tbody id="vehicleRows"></tbody>
 </table>
 </div>
@@ -165,7 +189,11 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 </section>
 
 <section id="check" class="tab">
-<div class="card"><h2>Check-list achat</h2><p>À utiliser avant de valider un achat.</p><div id="checks"></div></div>
+<div class="card">
+<h2>Check-list achat</h2>
+<p>À utiliser avant de valider un achat.</p>
+<div id="checks"></div>
+</div>
 </section>
 
 <section id="bilan" class="tab">
@@ -202,7 +230,6 @@ const fields=["brand","model","trim","year","plate","vin","color","km","fuel","p
 const conditions=["Moteur","Boîte","Embrayage","Freins","Pneus","Carrosserie","Intérieur","Électricité","Climatisation","Distribution","Batterie","Voyants"];
 
 const condIds={};
-
 conditions.forEach((x,i)=>condIds[x]="c"+i);
 
 document.getElementById("conditionGrid").innerHTML=conditions.map((x,i)=>`<div><label>${x}</label><select id="c${i}"><option>À contrôler</option><option>OK</option><option>À prévoir</option><option>À remplacer</option></select></div>`).join("");
