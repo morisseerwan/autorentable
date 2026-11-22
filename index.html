@@ -41,7 +41,11 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 </style>
 </head>
 <body>
-<header><h1>AUTORENTABLE</h1><p>Gestion des véhicules • marges • suivi des achats et ventes</p></header>
+
+<header>
+<h1>AUTORENTABLE</h1>
+<p>Gestion des véhicules • marges • suivi des achats et ventes</p>
+</header>
 
 <nav id="nav">
 <button class="active" data-tab="dashboard">Tableau de bord</button>
@@ -52,6 +56,7 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 </nav>
 
 <main>
+
 <section class="card" id="authCard">
 <h2>Compte AutoRentable</h2>
 <p id="authStatus" class="notice">Connecte-toi ou crée un compte pour enregistrer tes véhicules en ligne.</p>
@@ -93,6 +98,7 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <div class="card">
 <h2>Fiche véhicule</h2>
 <div class="notice">Remplis les champs. Les coûts, la marge et le ROI se calculent automatiquement.</div>
+
 <h3>Identification</h3>
 <div class="grid">
 <div><label>Marque</label><input id="brand"></div>
@@ -173,6 +179,7 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 </div>
 </div>
 </section>
+
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -181,11 +188,19 @@ const SUPABASE_URL = "https://qlpidzdghfprrdmgkuvn.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JpYur1CchEbgi3xIz9oIyg_IhvBopTo";
 const KEY = "pack_marchand_auto_v1";
 
-let db=null,currentUser=null,vehicles=[],editingId=null,lastUserId=undefined;
-let subscription=null,isPremium=false,subscriptionChecked=false;
+let db=null;
+let currentUser=null;
+let vehicles=[];
+let editingId=null;
+let lastUserId=undefined;
+let subscription=null;
+let isPremium=false;
+let subscriptionChecked=false;
 
 const fields=["brand","model","trim","year","plate","vin","color","km","fuel","power","gear","firstDate","buy","repairs","parts","admin","ct","transport","other","plannedSale","realSale","saleDate","platform","notes"];
+
 const conditions=["Moteur","Boîte","Embrayage","Freins","Pneus","Carrosserie","Intérieur","Électricité","Climatisation","Distribution","Batterie","Voyants"];
+
 const condIds={};
 
 conditions.forEach((x,i)=>condIds[x]="c"+i);
@@ -252,7 +267,8 @@ updateSubscriptionUI();
 
 if(!currentUser)return;
 
-const {data,error}=await db.from("subscriptions")
+const {data,error}=await db
+.from("subscriptions")
 .select("status,current_period_end")
 .eq("user_id",currentUser.id)
 .maybeSingle();
@@ -266,9 +282,14 @@ return;
 }
 
 subscription=data;
-const periodValid=!data?.current_period_end||new Date(data.current_period_end).getTime()>Date.now();
 
-isPremium=!!data&&["active","trialing"].includes(data.status)&&periodValid;
+const periodValid=!data?.current_period_end||
+new Date(data.current_period_end).getTime()>Date.now();
+
+const normalizedStatus=String(data?.status||"").trim().toLowerCase();
+
+isPremium=!!data&&["active","trialing","actif","en essai"].includes(normalizedStatus)&&periodValid;
+
 subscriptionChecked=true;
 updateSubscriptionUI();
 }
@@ -278,15 +299,18 @@ if(!currentUser){
 alert("Connecte-toi pour continuer.");
 return false;
 }
+
 if(!subscriptionChecked){
 alert("Vérification de ton abonnement en cours. Réessaie dans un instant.");
 return false;
 }
+
 if(!isPremium){
 alert("Cette fonctionnalité nécessite un abonnement AutoRentable Premium à 14,99 € par mois.");
 document.getElementById("subscriptionCard").scrollIntoView({behavior:"smooth"});
 return false;
 }
+
 return true;
 }
 
@@ -309,6 +333,7 @@ document.querySelectorAll("#fiche input,#fiche select,#fiche textarea").forEach(
 function collectVehicle(){
 const c=calc();
 const real=num("realSale");
+
 return {
 ...(editingId?{id:editingId}:{}),
 ...Object.fromEntries(fields.map(f=>[f,val(f)])),
@@ -338,6 +363,7 @@ const {data,error}=await db.from("vehicles")
 .order("created_at",{ascending:false});
 
 if(error)throw error;
+
 vehicles=(data||[]).map(row=>({...row.data,id:row.id}));
 render();
 }
@@ -385,10 +411,12 @@ async function del(id){
 if(!requirePremium()||!confirm("Supprimer ce véhicule ?"))return;
 
 const {error}=await db.from("vehicles").delete().eq("id",id);
+
 if(error){
 alert("Suppression impossible : "+error.message);
 return;
 }
+
 await loadVehicles();
 }
 
