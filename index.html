@@ -32,6 +32,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #b7c6df;border-color:#
 .kpi small{display:block;color:#64748b}.kpi strong{display:block;font-size:20px;margin-top:4px}
 button.primary{border:0;background:#1f2937;color:#fff;border-radius:9px;padding:12px 15px;font-weight:800;font-size:14px}
 button.secondary{border:1px solid #cbd2dc;background:white;border-radius:9px;padding:10px 13px;font-weight:700}
+button:disabled{opacity:.6;cursor:wait}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
@@ -64,6 +65,14 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <div class="actions" id="signedInActions" hidden><button class="secondary" id="logoutBtn">Se déconnecter</button></div>
 <p class="notice">Les véhicules sont privés et associés au compte connecté. Ne communique jamais ta clé secrète Supabase.</p>
 </section>
+
+<section class="card" id="subscriptionCard">
+<h2>AutoRentable Premium</h2>
+<p>Accède à ton abonnement pour 14,99 € par mois.</p>
+<p id="paymentStatus" class="notice">Connecte-toi pour accéder au paiement.</p>
+<button class="primary" id="subscribeBtn" hidden>S'abonner – 14,99 €/mois</button>
+</section>
+
 <section id="dashboard" class="tab active">
 <div class="card"><h2>Tableau de bord</h2><div class="kpis">
 <div class="kpi"><small>Véhicules</small><strong id="kpiVehicles">0</strong></div>
@@ -73,6 +82,7 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 </div></div>
 <div class="card"><h2>Résultats récents</h2><div id="recent"></div></div>
 </section>
+
 <section id="fiche" class="tab"><div class="card">
 <h2>Fiche véhicule</h2><div class="notice">Remplis les champs. Les coûts, la marge et le ROI se calculent automatiquement.</div>
 <h3>Identification</h3><div class="grid">
@@ -85,6 +95,7 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <div><label>Boîte</label><select id="gear"><option></option><option>Manuelle</option><option>Automatique</option></select></div>
 <div><label>Date 1ère mise en circulation</label><input id="firstDate" type="date"></div>
 </div>
+
 <h3>Calcul de rentabilité</h3><div class="grid">
 <div><label>Prix d'achat (€)</label><input id="buy" type="number" step="0.01"></div>
 <div><label>Réparations (€)</label><input id="repairs" type="number" step="0.01"></div>
@@ -113,7 +124,9 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <section id="suivi" class="tab"><div class="card"><h2>Suivi de tous les véhicules</h2><div class="table-wrap">
 <table><thead><tr><th>Véhicule</th><th>Achat</th><th>Coût total</th><th>Vente</th><th>Marge</th><th>Statut</th><th></th></tr></thead><tbody id="vehicleRows"></tbody></table>
 </div></div></section>
+
 <section id="check" class="tab"><div class="card"><h2>Check-list achat</h2><p>À utiliser avant de valider un achat.</p><div id="checks"></div></div></section>
+
 <section id="bilan" class="tab"><div class="card"><h2>Bilan mensuel</h2><div class="kpis">
 <div class="kpi"><small>Ventes</small><strong id="monthCount">0</strong></div>
 <div class="kpi"><small>CA</small><strong id="monthCA">0 €</strong></div>
@@ -121,127 +134,291 @@ th{background:#f1f4f8}.table-wrap{overflow:auto}
 <div class="kpi"><small>Marge moyenne</small><strong id="monthAvg">0 €</strong></div>
 </div></div></section>
 </main>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = "https://qlpidzdghfprrdmgkuvn.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JpYur1CchEbgi3xIz9oIyg_IhvBopTo";
 const KEY = "pack_marchand_auto_v1";
+
 let db = null, currentUser = null, vehicles = [], editingId = null, lastUserId = undefined;
+
 const fields = ["brand","model","trim","year","plate","vin","color","km","fuel","power","gear","firstDate","buy","repairs","parts","admin","ct","transport","other","plannedSale","realSale","saleDate","platform","notes"];
 const conditions = ["Moteur","Boîte","Embrayage","Freins","Pneus","Carrosserie","Intérieur","Électricité","Climatisation","Distribution","Batterie","Voyants"];
 const condIds = {};
+
 conditions.forEach((x,i)=>condIds[x]="c"+i);
+
 document.getElementById("conditionGrid").innerHTML = conditions.map((x,i)=>`<div><label>${x}</label><select id="c${i}"><option>À contrôler</option><option>OK</option><option>À prévoir</option><option>À remplacer</option></select></div>`).join("");
+
 const checkItems = ["Carte grise / identité du vendeur","VIN et documents vérifiés","Historique d'entretien","Démarrage à froid","Essai routier","Embrayage / boîte","Freinage","Pneus","Fuites moteur","Voyants tableau de bord","Distribution","CT / contre-visite","Prix d'achat négocié","Coût des réparations estimé","Prix de revente estimé"];
+
 document.getElementById("checks").innerHTML = checkItems.map((x,i)=>`<label style="display:flex;gap:9px;align-items:center;margin:10px 0;font-size:14px"><input type="checkbox" style="width:auto" id="chk${i}">${x}</label>`).join("");
+
 function val(id){return document.getElementById(id).value}
 function num(id){return parseFloat(val(id))||0}
 function money(n){return new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n||0)}
-function setStatus(message,isError=false){const el=document.getElementById("authStatus");el.textContent=message;el.style.background=isError?"#fff1f0":"#eef5ff";el.style.borderLeftColor=isError?"#b42318":"#60708f"}
-function updateAuthUI(){const signedIn=!!currentUser;document.getElementById("authForm").hidden=signedIn;document.getElementById("authActions").hidden=signedIn;document.getElementById("signedInActions").hidden=!signedIn;if(signedIn)setStatus("Connecté : "+currentUser.email+". Tes véhicules sont chargés depuis Supabase.")}
+
+function setStatus(message,isError=false){
+const el=document.getElementById("authStatus");
+el.textContent=message;
+el.style.background=isError?"#fff1f0":"#eef5ff";
+el.style.borderLeftColor=isError?"#b42318":"#60708f";
+}
+
+function updateAuthUI(){
+const signedIn=!!currentUser;
+document.getElementById("authForm").hidden=signedIn;
+document.getElementById("authActions").hidden=signedIn;
+document.getElementById("signedInActions").hidden=!signedIn;
+document.getElementById("subscribeBtn").hidden=!signedIn;
+document.getElementById("paymentStatus").textContent=signedIn
+? "Connecté. Tu peux lancer le paiement sécurisé de ton abonnement."
+: "Connecte-toi pour accéder au paiement.";
+if(signedIn)setStatus("Connecté : "+currentUser.email+". Tes véhicules sont chargés depuis Supabase.");
+}
+
 function calc(){
- const cost=num("buy")+num("repairs")+num("parts")+num("admin")+num("ct")+num("transport")+num("other");
- const pm=num("plannedSale")-cost,pct=num("plannedSale")?pm/num("plannedSale")*100:0,roi=cost?pm/cost*100:0;
- document.getElementById("totalCost").textContent=money(cost);document.getElementById("plannedMargin").textContent=money(pm);document.getElementById("plannedPct").textContent=pct.toFixed(1)+" %";document.getElementById("roi").textContent=roi.toFixed(1)+" %";
- return {cost,pm,pct,roi};
+const cost=num("buy")+num("repairs")+num("parts")+num("admin")+num("ct")+num("transport")+num("other");
+const pm=num("plannedSale")-cost;
+const pct=num("plannedSale")?pm/num("plannedSale")*100:0;
+const roi=cost?pm/cost*100:0;
+document.getElementById("totalCost").textContent=money(cost);
+document.getElementById("plannedMargin").textContent=money(pm);
+document.getElementById("plannedPct").textContent=pct.toFixed(1)+" %";
+document.getElementById("roi").textContent=roi.toFixed(1)+" %";
+return {cost,pm,pct,roi};
 }
+
 document.querySelectorAll("#fiche input,#fiche select,#fiche textarea").forEach(e=>e.addEventListener("input",calc));
-function collectVehicle(){const c=calc(),real=num("realSale");return {...(editingId?{id:editingId}:{}),...Object.fromEntries(fields.map(f=>[f,val(f)])),...Object.fromEntries(conditions.map(x=>[x,val(condIds[x])])),totalCost:c.cost,margin:real-c.cost,status:real?"Vendu":"En stock"}}
-function reset(){editingId=null;fields.forEach(f=>document.getElementById(f).value="");conditions.forEach(x=>document.getElementById(condIds[x]).value="À contrôler");calc()}
+
+function collectVehicle(){
+const c=calc(),real=num("realSale");
+return {
+...(editingId?{id:editingId}:{}),
+...Object.fromEntries(fields.map(f=>[f,val(f)])),
+...Object.fromEntries(conditions.map(x=>[x,val(condIds[x])])),
+totalCost:c.cost,
+margin:real-c.cost,
+status:real?"Vendu":"En stock"
+};
+}
+
+function reset(){
+editingId=null;
+fields.forEach(f=>document.getElementById(f).value="");
+conditions.forEach(x=>document.getElementById(condIds[x]).value="À contrôler");
+calc();
+}
+
 async function loadVehicles(){
- if(!currentUser){vehicles=[];render();return}
- const {data,error}=await db.from("vehicles").select("id,data,created_at,updated_at").order("created_at",{ascending:false});
- if(error)throw error;
- vehicles=(data||[]).map(row=>({...row.data,id:row.id}));render();
+if(!currentUser){vehicles=[];render();return}
+const {data,error}=await db.from("vehicles").select("id,data,created_at,updated_at").order("created_at",{ascending:false});
+if(error)throw error;
+vehicles=(data||[]).map(row=>({...row.data,id:row.id}));
+render();
 }
+
 async function save(){
- if(!currentUser){alert("Connecte-toi d'abord pour enregistrer un véhicule.");return}
- const v=collectVehicle(),id=editingId||crypto.randomUUID(),payload={...v};delete payload.id;
- const {error}=await db.from("vehicles").upsert({id,user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:"id"});
- if(error){alert("Enregistrement impossible : "+error.message);return}
- editingId=id;await loadVehicles();alert("Véhicule enregistré dans Supabase.");
+if(!currentUser){alert("Connecte-toi d'abord pour enregistrer un véhicule.");return}
+const v=collectVehicle();
+const id=editingId||crypto.randomUUID();
+const payload={...v};
+delete payload.id;
+const {error}=await db.from("vehicles").upsert({id,user_id:currentUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:"id"});
+if(error){alert("Enregistrement impossible : "+error.message);return}
+editingId=id;
+await loadVehicles();
+alert("Véhicule enregistré dans Supabase.");
 }
+
 function edit(id){
- const v=vehicles.find(x=>x.id===id);if(!v)return;editingId=id;
- fields.forEach(f=>document.getElementById(f).value=v[f]??"");
- conditions.forEach(x=>document.getElementById(condIds[x]).value=v[x]??"À contrôler");
- document.querySelector('[data-tab="fiche"]').click();calc();
+const v=vehicles.find(x=>x.id===id);
+if(!v)return;
+editingId=id;
+fields.forEach(f=>document.getElementById(f).value=v[f]??"");
+conditions.forEach(x=>document.getElementById(condIds[x]).value=v[x]??"À contrôler");
+document.querySelector('[data-tab="fiche"]').click();
+calc();
 }
+
 async function del(id){
- if(!currentUser||!confirm("Supprimer ce véhicule ?"))return;
- const {error}=await db.from("vehicles").delete().eq("id",id);
- if(error){alert("Suppression impossible : "+error.message);return}
- await loadVehicles();
+if(!currentUser||!confirm("Supprimer ce véhicule ?"))return;
+const {error}=await db.from("vehicles").delete().eq("id",id);
+if(error){alert("Suppression impossible : "+error.message);return}
+await loadVehicles();
 }
-function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+
+function escapeHtml(value){
+return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
 function render(){
- const rows=document.getElementById("vehicleRows");
- if(!vehicles.length)rows.innerHTML='<tr><td colspan="7" class="empty">Aucun véhicule enregistré.</td></tr>';
- else rows.innerHTML=vehicles.map(v=>`<tr><td><b>${escapeHtml(v.brand||"")} ${escapeHtml(v.model||"")}</b><br>${escapeHtml(v.plate||"")}</td><td>${money(+v.buy)}</td><td>${money(+v.totalCost)}</td><td>${money(+v.realSale)}</td><td class="${+v.margin>=0?'positive':'negative'}">${money(+v.margin)}</td><td>${escapeHtml(v.status||"En stock")}</td><td><button class="secondary" data-edit="${v.id}">Modifier</button> <button class="secondary" data-delete="${v.id}">×</button></td></tr>`).join("");
- rows.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>edit(b.dataset.edit)));
- rows.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>del(b.dataset.delete)));
- const sold=vehicles.filter(v=>+v.realSale>0),ca=sold.reduce((s,v)=>s+(+v.realSale||0),0),mar=sold.reduce((s,v)=>s+(+v.margin||0),0);
- document.getElementById("kpiVehicles").textContent=vehicles.length;
- document.getElementById("kpiStock").textContent=vehicles.filter(v=>!+v.realSale).length;
- document.getElementById("kpiSales").textContent=money(ca);document.getElementById("kpiMargin").textContent=money(mar);
- document.getElementById("monthCount").textContent=sold.length;document.getElementById("monthCA").textContent=money(ca);document.getElementById("monthMargin").textContent=money(mar);document.getElementById("monthAvg").textContent=money(sold.length?mar/sold.length:0);
- document.getElementById("recent").innerHTML=sold.length?`<div class="table-wrap"><table><tr><th>Véhicule</th><th>Vente</th><th>Marge</th></tr>${sold.slice(-5).reverse().map(v=>`<tr><td>${escapeHtml(v.brand||"")} ${escapeHtml(v.model||"")}</td><td>${money(+v.realSale)}</td><td class="${+v.margin>=0?'positive':'negative'}">${money(+v.margin)}</td></tr>`).join("")}</table></div>`:'<div class="empty">Aucune vente enregistrée.</div>';
+const rows=document.getElementById("vehicleRows");
+if(!vehicles.length){
+rows.innerHTML='<tr><td colspan="7" class="empty">Aucun véhicule enregistré.</td></tr>';
+}else{
+rows.innerHTML=vehicles.map(v=>`<tr><td><b>${escapeHtml(v.brand||"")} ${escapeHtml(v.model||"")}</b><br>${escapeHtml(v.plate||"")}</td><td>${money(+v.buy)}</td><td>${money(+v.totalCost)}</td><td>${money(+v.realSale)}</td><td class="${+v.margin>=0?'positive':'negative'}">${money(+v.margin)}</td><td>${escapeHtml(v.status||"En stock")}</td><td><button class="secondary" data-edit="${v.id}">Modifier</button> <button class="secondary" data-delete="${v.id}">×</button></td></tr>`).join("");
+}
+rows.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>edit(b.dataset.edit)));
+rows.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>del(b.dataset.delete)));
+
+const sold=vehicles.filter(v=>+v.realSale>0);
+const ca=sold.reduce((s,v)=>s+(+v.realSale||0),0);
+const mar=sold.reduce((s,v)=>s+(+v.margin||0),0);
+
+document.getElementById("kpiVehicles").textContent=vehicles.length;
+document.getElementById("kpiStock").textContent=vehicles.filter(v=>!+v.realSale).length;
+document.getElementById("kpiSales").textContent=money(ca);
+document.getElementById("kpiMargin").textContent=money(mar);
+
+document.getElementById("monthCount").textContent=sold.length;
+document.getElementById("monthCA").textContent=money(ca);
+document.getElementById("monthMargin").textContent=money(mar);
+document.getElementById("monthAvg").textContent=money(sold.length?mar/sold.length:0);
+
+document.getElementById("recent").innerHTML=sold.length
+? `<div class="table-wrap"><table><tr><th>Véhicule</th><th>Vente</th><th>Marge</th></tr>${sold.slice(-5).reverse().map(v=>`<tr><td>${escapeHtml(v.brand||"")} ${escapeHtml(v.model||"")}</td><td>${money(+v.realSale)}</td><td class="${+v.margin>=0?'positive':'negative'}">${money(+v.margin)}</td></tr>`).join("")}</table></div>`
+: '<div class="empty">Aucune vente enregistrée.</div>';
 }
 async function migrateLocalVehiclesOnce(){
- if(!currentUser)return;
- const migrationKey="pack_marchand_migrated_"+currentUser.id;
- if(localStorage.getItem(migrationKey))return;
- let old=[];try{old=JSON.parse(localStorage.getItem(KEY)||"[]")}catch{}
- if(!Array.isArray(old)||!old.length){localStorage.setItem(migrationKey,"1");return}
- const ok=confirm("Des véhicules sont encore enregistrés sur cet appareil. Veux-tu les copier dans ton compte Supabase ? Les données locales seront conservées.");
- if(!ok)return;
- const rows=old.map(v=>{const data={...v};delete data.id;return {user_id:currentUser.id,data,updated_at:new Date().toISOString()}});
- const {error}=await db.from("vehicles").insert(rows);
- if(error){alert("Migration non effectuée : "+error.message+". Les données locales sont conservées.");return}
- localStorage.setItem(migrationKey,"1");alert("Anciennes fiches copiées dans Supabase. La copie locale est conservée en sécurité.");
+if(!currentUser)return;
+const migrationKey="pack_marchand_migrated_"+currentUser.id;
+if(localStorage.getItem(migrationKey))return;
+let old=[];
+try{old=JSON.parse(localStorage.getItem(KEY)||"[]")}catch{}
+if(!Array.isArray(old)||!old.length){
+localStorage.setItem(migrationKey,"1");
+return;
 }
+const ok=confirm("Des véhicules sont encore enregistrés sur cet appareil. Veux-tu les copier dans ton compte Supabase ? Les données locales seront conservées.");
+if(!ok)return;
+const rows=old.map(v=>{
+const data={...v};
+delete data.id;
+return {user_id:currentUser.id,data,updated_at:new Date().toISOString()};
+});
+const {error}=await db.from("vehicles").insert(rows);
+if(error){alert("Migration non effectuée : "+error.message+". Les données locales sont conservées.");return}
+localStorage.setItem(migrationKey,"1");
+alert("Anciennes fiches copiées dans Supabase. La copie locale est conservée en sécurité.");
+}
+
 async function signIn(){
- const email=val("authEmail").trim(),password=val("authPassword");
- if(!email||!password){setStatus("Renseigne ton adresse e-mail et ton mot de passe.",true);return}
- const {error}=await db.auth.signInWithPassword({email,password});
- if(error)setStatus(error.message,true);
+const email=val("authEmail").trim();
+const password=val("authPassword");
+if(!email||!password){setStatus("Renseigne ton adresse e-mail et ton mot de passe.",true);return}
+const {error}=await db.auth.signInWithPassword({email,password});
+if(error)setStatus(error.message,true);
 }
+
 async function signUp(){
- const email=val("authEmail").trim(),password=val("authPassword");
- if(!email){setStatus("Renseigne ton adresse e-mail.",true);return}
- if(password.length<8){setStatus("Choisis un mot de passe d'au moins 8 caractères.",true);return}
- const {data,error}=await db.auth.signUp({email,password});
- if(error)setStatus(error.message,true);
- else if(!data.session)setStatus("Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.");
- else setStatus("Compte créé et connecté.");
+const email=val("authEmail").trim();
+const password=val("authPassword");
+if(!email){setStatus("Renseigne ton adresse e-mail.",true);return}
+if(password.length<8){setStatus("Choisis un mot de passe d'au moins 8 caractères.",true);return}
+const {data,error}=await db.auth.signUp({email,password});
+if(error)setStatus(error.message,true);
+else if(!data.session)setStatus("Compte créé. Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.");
+else setStatus("Compte créé et connecté.");
 }
-async function signOut(){const {error}=await db.auth.signOut();if(error)setStatus(error.message,true)}
+
+async function signOut(){
+const {error}=await db.auth.signOut();
+if(error)setStatus(error.message,true);
+}
+
+// Appel de la fonction Supabase qui crée la session Stripe Checkout.
+async function startSubscription(){
+if(!currentUser){
+document.getElementById("paymentStatus").textContent="Connecte-toi avant de lancer le paiement.";
+return;
+}
+const button=document.getElementById("subscribeBtn");
+const status=document.getElementById("paymentStatus");
+button.disabled=true;
+button.textContent="Préparation du paiement...";
+status.textContent="Connexion sécurisée à Stripe...";
+try{
+const {data,error}=await db.functions.invoke("create-checkout-session",{body:{}});
+if(error)throw error;
+if(!data||!data.url)throw new Error(data?.error||"Stripe n'a pas renvoyé de lien de paiement.");
+window.location.assign(data.url);
+}catch(error){
+status.textContent="Impossible de lancer le paiement : "+(error.message||"Erreur inconnue");
+button.disabled=false;
+button.textContent="Réessayer – 14,99 €/mois";
+}
+}
+
 document.getElementById("loginBtn").onclick=signIn;
 document.getElementById("signupBtn").onclick=signUp;
 document.getElementById("logoutBtn").onclick=signOut;
+document.getElementById("subscribeBtn").onclick=startSubscription;
 document.getElementById("saveBtn").onclick=save;
 document.getElementById("resetBtn").onclick=reset;
-document.querySelectorAll("#nav button").forEach(b=>{b.onclick=()=>{document.querySelectorAll("#nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.tab).classList.add("active");render()}});
+
+document.querySelectorAll("#nav button").forEach(b=>{
+b.onclick=()=>{
+document.querySelectorAll("#nav button").forEach(x=>x.classList.remove("active"));
+b.classList.add("active");
+document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+document.getElementById(b.dataset.tab).classList.add("active");
+render();
+};
+});
+
 async function refreshSession(session){
- const nextUser=session?.user||null,nextUserId=nextUser?.id||null;
- currentUser=nextUser;updateAuthUI();
- if(nextUserId===lastUserId)return;
- lastUserId=nextUserId;
- try{
-  if(currentUser){await migrateLocalVehiclesOnce();await loadVehicles();setStatus("Connexion réussie. Tes véhicules sont chargés.")}
-  else{vehicles=[];render();setStatus("Déconnecté. Connecte-toi pour retrouver tes véhicules.")}
- }catch(error){setStatus("Erreur Supabase : "+error.message,true)}
+const nextUser=session?.user||null;
+const nextUserId=nextUser?.id||null;
+currentUser=nextUser;
+updateAuthUI();
+if(nextUserId===lastUserId)return;
+lastUserId=nextUserId;
+try{
+if(currentUser){
+await migrateLocalVehiclesOnce();
+await loadVehicles();
+setStatus("Connexion réussie. Tes véhicules sont chargés.");
+}else{
+vehicles=[];
+render();
+setStatus("Déconnecté. Connecte-toi pour retrouver tes véhicules.");
 }
+}catch(error){
+setStatus("Erreur Supabase : "+error.message,true);
+}
+}
+
 async function init(){
- calc();render();
- if(!window.supabase){setStatus("Impossible de charger Supabase. Vérifie ta connexion internet.",true);return}
- if(!SUPABASE_URL.startsWith("https://")||!SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_")){setStatus("Configuration Supabase incorrecte.",true);return}
- db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
- db.auth.onAuthStateChange((_event,session)=>{setTimeout(()=>{refreshSession(session)},0)});
- const {data,error}=await db.auth.getSession();
- if(error){setStatus(error.message,true);return}
- await refreshSession(data.session);
+calc();
+render();
+
+const params=new URLSearchParams(window.location.search);
+if(params.get("paiement")==="success"){
+document.getElementById("paymentStatus").textContent="Retour de Stripe reçu. Vérification de ton abonnement en cours.";
+}else if(params.get("paiement")==="cancel"){
+document.getElementById("paymentStatus").textContent="Paiement annulé. Tu peux réessayer quand tu le souhaites.";
 }
+
+if(!window.supabase){
+setStatus("Impossible de charger Supabase. Vérifie ta connexion internet.",true);
+return;
+}
+if(!SUPABASE_URL.startsWith("https://")||!SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_")){
+setStatus("Configuration Supabase incorrecte.",true);
+return;
+}
+
+db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+db.auth.onAuthStateChange((_event,session)=>{
+setTimeout(()=>{refreshSession(session)},0);
+});
+const {data,error}=await db.auth.getSession();
+if(error){setStatus(error.message,true);return}
+await refreshSession(data.session);
+}
+
 init();
 </script>
 </body>
